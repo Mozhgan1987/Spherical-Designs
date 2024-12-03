@@ -1,0 +1,79 @@
+
+// code to compute the real and complex harmonic Molien series
+
+HermTranspose := function(B)
+  T:=Transpose(B);
+  T:=Parent(T)![ComplexConjugate(z):z in Eltseq(T)];
+  return T;
+end function;
+
+// Complex case
+
+hMolC := function(G)
+  P<x>:=PolynomialRing(BaseRing(G)); Q<y>:=PolynomialRing(P);
+  // Q<x,y>:=PolynomialRing(BaseRing(G),2);
+  d:=Dimension(G); MR:=MatrixRing(Q,d); I:=IdentityMatrix(Q,d);
+  CC:=ConjugacyClasses(G); sm:=0;
+  for j in [1..#CC] do
+    g:=CC[j][3];
+    sm:=sm+CC[j][2]*(1-x*y)/Determinant(I-x*MR!g)/Determinant(I-y*MR!HermTranspose(g));
+  end for;
+  return sm/Order(G);
+end function;
+
+// maple code:  simplify(mtaylor(ms,[x,y],8));
+
+G:=ShephardTodd(16);
+G:=ShephardTodd(28);
+
+hMolR := function(G)
+  P<t>:=PolynomialRing(BaseRing(G));
+  d:=Dimension(G); MR:=MatrixRing(P,d); I:=IdentityMatrix(P,d);
+  CC:=ConjugacyClasses(G); sm:=0;
+  for j in [1..#CC] do
+    g:=CC[j][3];
+    sm:=sm+CC[j][2]*(1-t^2)/Determinant(I-t*MR!g);
+  end for;
+  return sm/Order(G);
+end function;
+
+hMolRII := function(G)
+  ms<t>:=MolienSeries(G); 
+  return (1-t^2)*ms;
+end function;
+
+PS<t> := PowerSeriesRing(IntegerRing(),25);
+PS!ms;
+
+Q<x,y>:=PolynomialRing(BaseRing(G),2);
+
+P<x>:=PolynomialRing(BaseRing(G)); Q<y>:=PolynomialRing(P);
+d:=Dimension(G);
+MR:=MatrixRing(Q,d); I:=IdentityMatrix(Q,d);
+
+
+P<x,y>:=PolynomialRing(BaseRing(G),2);
+
+
+real Molien series
+
+ms<t>:=MolienSeries(G); ms:=(1-t^2)*ms;
+
+PS<u> := PowerSeriesRing(IntegerRing(),25);
+PS!ms;
+
+// set up cyclic group
+
+k:=3; d:=3;
+FF:=CyclotomicField(k);
+I := Matrix(FF,d,d,[<j+1,j+1,1>: j in [0..d-1]]);
+w:=RootOfUnity(k);
+G:=MatrixGroup< d,FF|w*I>;
+hMolC(G);
+
+
+
+
+
+
+

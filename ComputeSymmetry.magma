@@ -1,0 +1,36 @@
+/* computation of the projective symmetry group of a set of lines from the triple products */
+/* Markus Grassl                                                                           */
+/* MPL, Erlangen                                                                           */
+/* Markus.Grassl@mpl.mpg.de                                                                */
+/* 2015-09-09                                                                              */
+
+ComputeSymmetry:=function(L);
+/* L is a sequence of vectors of equal nor */
+
+
+  time gram:=Matrix([[InnerProduct(a,b):a in L]:b in L]);
+  time triple:={<i,j,k,gram[i,j]*gram[j,k]*gram[k,i]>:i,j,k in [1..#L]};
+
+  time values:={x[4]:x in triple} diff {0,1}; //exclude the trivial cases
+
+  grp:=Sym(#L);
+
+  time GS3:=GSet(grp,Subsequences({1..#L},3));
+  time for val in values diff {0,1} do
+    S:={[x[1],x[2],x[3]]:x in triple|x[4] eq val};
+    printf "computing stabiliser of %o points ",#S;
+    time grp:=Stabilizer(grp,GS3,S);
+    #grp;
+  end for;
+
+  return grp;
+end function;
+
+SymP:=function(V);
+  L:=[]; for j in [1..NumberOfColumns(V)] do 
+    Append(~L,ColumnSubmatrix(V,[j])); 
+  end for;
+  return ComputeSymmetry(L);
+end function;
+
+

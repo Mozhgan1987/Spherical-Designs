@@ -1,0 +1,90 @@
+
+//G:=ShephardTodd(4);
+R := BaseRing(G);
+d := Degree(G);
+VV := VectorSpace(G);
+
+function FixedSubspaces(H)
+  s := NumberOfGenerators(H);
+  if s ne 0 then
+    evals:={ep[1] : ep in Eigenvalues(H.1)};
+    espaces:={Eigenspace(H.1,e):e in evals};
+    espacelist:=espaces;
+    else espacelist:={VectorSpace(G)};
+  end if;
+  for j in [2..s] do
+    if not IsScalar(H.j) then
+      evals:={ep[1] : ep in Eigenvalues(H.j)};
+      espaces:={Eigenspace(H.j,e):e in evals};
+      espacelist:={ V meet W : V in espacelist, W in espaces};
+    end if;
+  end for;
+  onedimFS:={};
+  for ss in espacelist do
+    if Dimension(ss) eq 1 then Include(~onedimFS,ss); end if;
+  end for;
+  return onedimFS;
+end function;
+
+function CalcOrbit(a,G)
+  T:=RightTransversal(G,Center(G));
+  v:=[a^g:g in T];
+  V:=Parent(v[1]); subs:={@ @}; vecs:=[ ];
+  for j:=1 to #v do
+    S:=sub<V|v[j]>;
+    if S notin subs then
+      Include(~subs,S);Append(~vecs,v[j]);
+    end if;
+  end for;
+  return vecs;
+end function;
+
+S := Subgroups(G);
+hstf:={};
+for j in [1..#S] do
+  FS:=FixedSubspaces(S[j]`subgroup);
+  hstf:=hstf join FS;
+end for;
+
+hstf:=SetToIndexedSet(hstf);
+orbitsizes:={};
+
+for j in [1..#hstf] do
+  a:=Basis(hstf[j])[1];
+  orbsize:=#CalcOrbit(a,G);
+  print(orbsize);
+  Include(~orbitsizes,orbsize);
+end for;
+
+print orbitsizes;
+
+//  print(j); print(#FixedSubspaces(S[j]`subgroup));
+//FS:=FixedSubspaces(S[3]`subgroup); FS;
+
+
+//// For a Shephard-Todd group, make the matrix A needed to give the
+//// inner product for which the representation is unitary.
+//// Note here we deal with Hermitian transpose of the group, since
+//// magma multiplies vectors on the right
+//function MakeA(G)
+//  R:=MatrixRing(BaseRing(G),Rank(G));
+//  sm:=0*R!Random(G);
+//  for g in G do
+//    sm:=sm+R!(g*HermTranspose(g));
+//  end for;
+//  return 1/Order(G)*sm;
+//end function;
+//A:=MakeA(G);
+
+// The inner product for which the (representation of) the Shephard-Todd
+// group is unitary
+function inp(a,b)
+innerp:=&+[a[i]*ComplexConjugate(b[i]):i in [1..Ncols(a)]];
+return(innerp);
+end function;
+
+function inpA(a,b)
+  return inp(a*A,b);
+end function;
+
+

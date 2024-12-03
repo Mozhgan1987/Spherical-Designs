@@ -1,0 +1,39 @@
+/*
+******************************************************************************
+  Code for calculations in the Clifford group
+******************************************************************************
+*/
+
+// The dimension of the group
+print "Enter the dimension d:";
+read D;
+d := StringToInteger(D); 
+
+// Set up an appropriate cyclotomic field
+
+FF := CyclotomicField(LeastCommonMultiple(8*3,2*d)); 
+ZZ := IntegerRing();
+// The factor of 8 ensures sqrt(d) is in the field
+// The factor of 3 ensures the third roots of unity are
+PR<x>:=PolynomialRing(FF);
+rt:=Roots(x^2-d)[1][1];
+// make sure rt is indeed the positive square root of d
+if Real(rt) lt 0 then rt := -rt; end if;
+
+w:=RootOfUnity(d); mu:=RootOfUnity(2*d);
+zeta:=RootOfUnity(24);
+
+I := Matrix(FF,d,d,[<j+1,j+1,1>: j in [0..d-1]]);
+A := Matrix(FF,d,d,[<j+1,j+1,w^j>: j in [0..d-1]]);
+S := Matrix(FF,d,d,[<((j+1) mod d)+1,j+1,1>: j in [0..d-1]]); 
+F := Matrix(FF,d,d,[<j+1,k+1,w^(j*k)>: j,k in [0..d-1]])/rt;
+R := Matrix(FF,d,d,[<j+1,j+1,mu^(j*(j+d))>: j in [0..d-1]]);
+M := R*F;  Z := zeta^(d-1)*M;
+
+G:=MatrixGroup< d,FF|F,R>;
+// This is the Clifford group
+G:=MatrixGroup< d,FF|S,A,F,R>; 
+H:=MatrixGroup< d,FF|S,A>; 
+
+
+

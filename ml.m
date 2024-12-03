@@ -1,0 +1,14 @@
+function f=ml(m,p);
+w=exp(pi*i/m);
+S=0;
+for a=1:m;
+    L1=0;
+    L2=-1;
+     for l=0:p;
+         L1=L1+w^(2*a*(l-p));
+         L2=L2+w^(2*a*(p-l));
+     end;
+     S=S+2*L1+2*L2;
+end;
+f=S/(4*m);
+end;

@@ -1,0 +1,363 @@
+/*
+******************************************************************************
+  Code for calculations in the Clifford group
+******************************************************************************
+*/
+
+// The dimension of the group
+print "Enter the dimension d:";
+read D;
+d := StringToInteger(D); 
+
+// Set up an appropriate cyclotomic field
+
+FF := CyclotomicField(LeastCommonMultiple(8*3,2*d)); 
+ZZ := IntegerRing();
+// The factor of 8 ensures sqrt(d) is in the field
+// The factor of 3 ensures the third roots of unity are
+PR<x>:=PolynomialRing(FF);
+rt:=Roots(x^2-d)[1][1];
+// make sure rt is indeed the positive square root of d
+if Real(rt) lt 0 then rt := -rt; end if;
+
+w:=RootOfUnity(d); mu:=RootOfUnity(2*d);
+zeta:=RootOfUnity(24);
+
+I := Matrix(FF,d,d,[<j+1,j+1,1>: j in [0..d-1]]);
+A := Matrix(FF,d,d,[<j+1,j+1,w^j>: j in [0..d-1]]);
+S := Matrix(FF,d,d,[<((j+1) mod d)+1,j+1,1>: j in [0..d-1]]); 
+F := Matrix(FF,d,d,[<j+1,k+1,w^(j*k)>: j,k in [0..d-1]])/rt;
+// Note the +jk, danger, danger
+R := Matrix(FF,d,d,[<j+1,j+1,mu^(j*(j+d))>: j in [0..d-1]]);
+M := R*F;  Z := zeta^(d-1)*M;
+//P := function(a) return Matrix(FF, d, d, [<j+1,((a*j) mod d)+1 ,1>: j in [0..d-1]]); end function;
+P := function(a)
+   return Matrix(FF, d, d, [<((a*k) mod d)+1, k+1, 1>: k in [0..d-1]]);
+end function;
+
+
+
+R*F*R-RootOfUnity(3)^2*(-zeta)^(d-1)*F*R^-1*F;
+R*F*R-RootOfUnity(8)^(1-d)*F*R^-1*F;
+W0:=(-1)^(d-1)*F^-1*R^3*F*R; 
+RootOfUnity(3)^2*(R^-1*F)^-1*Z*R^-1*F*W0^-1;
+
+G:=MatrixGroup< d,FF|S,A,F,R>; G:=MatrixGroup< d,FF|F,R>;
+K:=MatrixGroup< d,FF|F,R,mu*I>; 
+
+if d mod 9 eq 3 then 
+  M1:=(-1)^(d-1)*R^(-ZZ!(((d+3))/3))*F*R^-3*F^-1*R^(ZZ!(-d/3)); 
+  M11:=(-1)^(d-1)*R^(-1)*F*R^-3*F^-1*R^(ZZ!(4*d/3)); 
+end if;
+if d mod 9 eq 6 then 
+//  M2:=(-1)^(ZZ!((d-3)/9))*R^(-ZZ!(((d+3))/3))*F^-1*R^-3*F*R^(ZZ!(-d/3)); 
+  M2:=(-1)^(d-1)*R^(-1)*F*R^-3*F^-1*R^(ZZ!(2*d/3));
+end if;
+if d mod 2 eq 4 then 
+  nR:=mu^-1*R; 
+  else nR:=R;
+end if;
+
+
+Determinant(R), Determinant(nR);
+
+G1:=MatrixGroup< d,FF|nS,nA,nF,nR>;
+G2:=MatrixGroup< d,FF|nS,nA,nF,M1>;
+
+// for h in H return (j,k) where h = c S^jA^k
+hpowers := function(h)
+   for j := 0 to d-1 do
+     if (S^-j*h)[1,1] ne 0 then jj := j; end if;
+   end for;
+   for k := 0 to d-1 do
+     g:=S^-jj*h*A^-k; if g/g[1,1] eq I then kk := k; end if;
+   end for;
+   return [jj,kk];
+end function;
+
+// for g in G return psi(g)
+psi := function(g)
+   Ae1 := hpowers(g*S*g^-1);
+   Ae2 := hpowers(g*A*g^-1);
+   return Matrix(ZZ, 2, 2, [Ae1[1],Ae2[1],Ae1[2],Ae2[2]]);
+end function;
+
+
+// for g in G return z_g as a d x d matrix z(j,k) 
+z := function(g)
+  psia := psi(g);
+  za := Matrix(FF,d,d,[]);
+  for j := 0 to d-1 do for k := 0 to d-1 do
+    jjkk:=psia*Matrix(ZZ,2,1,[j,k]);
+    jj:=jjkk[1,1]; kk:=jjkk[2,1];
+    za[j+1,k+1]:= (g*S^j*A^k*g^-1*(S^jj*A^kk)^-1)[1,1];
+  end for; end for;
+  return za;
+end function;
+
+
+zsymp := function(g)
+  psia := psi(g);
+  za := Matrix(FF,d,d,[]);
+  for j := 0 to d-1 do for k := 0 to d-1 do
+    jjkk:=psia*Matrix(ZZ,2,1,[j,k]);
+    jj:=jjkk[1,1]; kk:=jjkk[2,1];
+    za[j+1,k+1]:= (-mu)^(jj*kk-j*k);
+  end for; end for;
+  return za;
+end function;
+
+Pmak := function(b)
+   if IsEven(d) 
+     then binv:=ZZ!((ResidueClassRing(2*d)!b)^-1);
+     else binv:=ZZ!((ResidueClassRing(d)!b)^-1);
+   end if;
+   sm:=0; 
+   for j in [0..d-1] do sm:=sm+mu^(b*j*(j+d)); end for; 
+   sm:=sm/rt;
+   return (1/sm)*R^binv*F*R^b*F*R^binv*F;
+end function;
+
+
+Zd := ResidueClassRing(d);
+r:=Matrix(Zd,2,2,[1,0,1,1]);
+f:=Matrix(Zd,2,2,[0,1,-1,0]);
+if d mod 9 eq 3 then 
+  m1:=Matrix(Zd,2,2,[1,3,(Zd!((d-3)/3)),-2]);
+Order(MatrixGroup<2,Zd|r,f>);
+Order(MatrixGroup<2,Zd|m1,r>);
+Order(MatrixGroup<2,Zd|m1,f>);
+end if;
+if d mod 9 eq 6 then 
+  m2:=Matrix(Zd,2,2,[1,3,(Zd!((2*d-3)/3)),-2]);
+Order(MatrixGroup<2,Zd|r,f>);
+Order(MatrixGroup<2,Zd|m2,r>); Order(MatrixGroup<2,Zd|m2,f>);
+end if;
+
+
+
+
+Determinant(F);
+
+
+nA:=mu^(d+1)*A; nS:=mu^(d+1)*S;
+Determinant(nA); Determinant(nS);
+
+H:=MatrixGroup< d,FF| S,A >; G:=MatrixGroup< d,FF| S,A,F,R >;
+nH:=MatrixGroup< d,FF| nS,nA >;
+IdentifyGroup(H); IdentifyGroup(nH);
+
+
+
+d:=5*7;
+  md:=1000000;
+  for k in [d..24*d] do
+F := CyclotomicField(k); 
+PR<y>:=PolynomialRing(F);
+if not IsIrreducible(y^2-d) then
+  md := Minimum(md,k);
+end if;
+  end for;
+md;
+
+
+
+Zd := ResidueClassRing(d);
+// The d bar of Appleby
+if IsEven(d) then
+  dd := 2*d;
+  else dd := d;
+end if;
+// and the ring Z_dd
+Zdd := ResidueClassRing(dd);
+Z := IntegerRing();
+
+// d-th root of unity
+zeta:= RootOfUnity(8*3*d);
+// 8th root of unity
+irt := zeta^(IntegerRing()!(3*d));
+thirdrt := zeta^(8*d);
+w4 := zeta^6;
+w2 := w4^2;
+mu := w2;
+w := w2^2;
+
+
+//Q := Rationals;
+
+// multiplicative inverse mod dd
+mi := function(x)
+   return IntegerRing()!((Zdd!x)^-1);
+end function;
+
+
+
+// for computing the order of the normaliser
+nu := function(n,d)
+  sm:=0;
+  for j := 0 to d-1 by 1 do
+    for k := 0 to d-1 by 1 do
+      if ((j*k-n) mod d) eq 0 then sm:=sm+1; end if;
+    end for;
+  end for;
+  return sm;
+end function;
+
+grpord := function(d)
+  sm:=0;
+  for n := 0 to d-1 by 1 do
+    sm:=sm+nu(n,d)*nu(n+1,d);
+  end for;
+  return sm*d^2;
+end function;
+
+
+
+
+if IsIrreducible(x^2+1) then
+  F := ext < F | x^2+1 >;
+  print "Have extended by adding i";
+end if;
+PRi<x>:=PolynomialRing(F);
+imm:=Roots(x^2+1)[1][1];
+im:=-zeta^(6*d);
+
+//if IsIrreducible(x^2-21) then
+//  F := ext < F | x^2-21 >;
+//  print "Have extended by adding sqrt(3)";
+//end if;
+//PRi<x>:=PolynomialRing(F);
+//sqto:=Roots(x^2-21)[1][1];
+
+//if IsIrreducible(x^2-3) then
+//  F := ext < F | x^2-3 >;
+//  print "Have extended by adding sqrt(3)";
+//end if;
+//PRi<x>:=PolynomialRing(F);
+
+//if IsIrreducible(x^2-7) then
+//  F := ext < F | x^2-7 >;
+//  print "Have extended by adding sqrt(7)";
+//end if;
+//PRi<x>:=PolynomialRing(F);
+
+
+//if not IsIrreducible(x^2+1) then
+//  im:=Roots(x^2+1)[1][1];
+//  print "Have added imaginary unit";
+//end if;
+
+
+PRi<z>:=PolynomialRing(F);
+
+//p:=1-3*z-6*z^2+16*z^3+3*z^4+27*z^6+3*z^8+16*z^9-6*z^10-3*z^11+z^12;
+
+//f1:=2*z^6+(sqto-3)*z^5+(sqto-3)*z^4+(22-4*sqto)*z^3+(sqto-3)*z^2+(sqto-3)*z^1+2; 
+
+// V:=VectorSpace(F,d);
+
+MS := Matrix(F, d, d, [<j+1,k+1,w2^(j*(j+d))>: j,k in [0..d-1]])/rt;  
+MSS := Matrix(F, d, d, [<j+1,k+1,w2^(j*(j+d)+2*j*k)>: j,k in [0..d-1]])/rt;  
+rt24:=zeta^d;
+
+// LA :=  rt24^(d-1)*R^(d+1)*f;
+M := rt24^(d-1)*Matrix(F, d, d, [<j+1,k+1,w2^(j*(j+d)+2*j*k)>: j,k in [0..d-1]])/rt;
+
+P := function(a)
+   return Matrix(F, d, d, [<j+1,((a*j) mod d)+1 ,1>: j in [0..d-1]]); 
+end function;
+
+// Bbar := Matrix(F, d, d, [<i+1,j+1,(-1)^i*w2^(-(i^2+2*i*j))>: i,j in [0..d-1]])/rt;  
+
+// List L of allowable P's
+
+L:=[]; Lindices:=[];
+for a := 1 to d-1 by 1 do
+  PP := Matrix(F, d, d, [<j+1,((a*j) mod d)+1 ,1>: j in [0..d-1]]); 
+  if not ( Determinant(PP) eq 0 ) then
+    L:=Append(L,PP);
+    Lindices:=Append(Lindices,a);
+//    print k;
+end if;
+end for;
+
+
+// for h in H return (j,k) where h = c S^jA^k
+hpowers := function(h)
+   for j := 1 to d do
+     if (S^-j*h)[1,1] ne 0 then jj := j mod d; end if;
+   end for;
+   for k := 1 to d do
+     g:=S^-jj*h*A^-k; if g/g[1,1] eq I then kk := k mod d; end if;
+//     if (S^-jj*h*A^-k) in MatrixGroup< d,F|zeta*I> then kk := k mod d; end if;
+   end for;
+   return [jj,kk];
+end function;
+
+// for g in G return psi(g) 
+psi := function(g)
+   Ae1 := hpowers(g*S*g^-1);
+   Ae2 := hpowers(g*A*g^-1);
+   return Matrix(Z, 2, 2, [Ae1[1],Ae2[1],Ae1[2],Ae2[2]]);
+end function;
+
+
+print "Allowable permutation matrices";
+print L;
+
+
+nm := function(A)
+    return Matrix(F, d, d, [<j,k,A[j,k]*ComplexConjugate(A[j,k])>: j,k in [1..d]]);  
+end function;
+
+K := MatrixGroup < d,F | f,M >;
+K2 := MatrixGroup < d,F | f,R >;
+K3 := MatrixGroup < d,F | M,R >;
+// E := MatrixGroup < d,F | f,Q >;
+//H := MatrixGroup < d,F | S,A,w*I >;
+H := MatrixGroup < d,F | S,A >;
+G := MatrixGroup < d,F | H,K,zeta*I >;
+HH := MatrixGroup < d,F | S,A,zeta*I >;
+//G1 := MatrixGroup < d,F | S,A,w*I,Q,f,L >;
+//G2 := MatrixGroup < d,F | S,A,w*I,Q,f,L,M >;
+
+if IsEven(d) then
+  G2 := MatrixGroup < d,F | S,A,Q,f,L,R >;
+  else G2 := MatrixGroup < d,F | S,A,Q,f,L >;
+end if;
+
+
+//G2 := MatrixGroup < d,F | S,A,w*I,Q,f,L,R >;
+
+// Order(G2);
+
+// Centraliser stuff
+//  
+//  cn:=Centraliser(G2,G2!g);
+//  gens:=SetToIndexedSet(Generators(cc));
+//  Eigenvalues(gens[10]);
+//  Order( MatrixGroup < d,F | gens[7],gens[6] >);
+//  zeta*I in cc;
+
+// print "Increase of size of Heisenberg group:";
+// Order(G)/Order(H);
+ 
+// print "Try variations of:   Order(MatrixGroup <d,F| S,A,w*I,Q,f,L>);";
+
+//   K := MatrixGroup < d,F | f,M >;
+//   W,psi :=WordGroup(K);
+//   (K!L[2]) @@ psi;
+
+//   K := MatrixGroup < d,F | f,M >;
+//   fg, phi :=FPGroup(K);
+//   L[1] in K;
+//   h := K!L[1];
+//   h in K;
+//   W,psi :=WordGroup(K);
+//   h @@ psi;
+//
+//   u := FreeGroup (2);
+//   Hm := hom <  u -> W | <u.1, W.1>, <u.2, W.2>>;
+//   (h @@ psi) @@ Hm;
+
+

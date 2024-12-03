@@ -1,0 +1,168 @@
+
+// Define the number of the Shephard-Todd group
+g:=33;
+G:=ShephardTodd(g);
+d:=Rank(G);
+
+load "Complements.m";
+
+function MaxPS(g)
+PN:=parabolicNames[g];
+n:=#PN;
+pn:=PN;
+for i:=1 to n-1 do
+Pi:=paraData(g,PN[i]);
+for j:=i+1 to n do
+Pj:=paraData(g,PN[j]);
+if Pi meet Pj eq Pi then Exclude(~pn,PN[i]);
+elif Pi meet Pj eq Pj then Exclude(~pn,PN[j]);
+end if;
+end for;
+end for;
+return pn;
+end function;
+
+function linesi(g,i)
+MPS:=MaxPS(g);
+P,Q,H,N,roots,rho,J,Xi,G:=paraData(g,MPS[i]);
+a:=&meet[Eigenspace(gen,1):gen in P].1;
+T:=RightTransversal(G,P);
+v:=[a^g:g in T];
+V:=Parent(v[1]); subs:={@ @}; vecs:=[ ];
+for j:=1 to #v do
+S:=sub<V|v[j]>;
+if S notin subs then
+Include(~subs,S);Append(~vecs,v[j]);
+end if;
+end for;
+return vecs;
+end function;
+
+// Find the maximal (parabolic) subgroups
+MPS:=MaxPS(g);
+
+// Find the line systems
+nls:=#MPS;
+X:=[];
+for j in [1..nls] do
+   P,Q,H,N,roots,rho,J,Xi,G:=paraData(g,MPS[j]);
+   Append(~X,linesi(g,j)); 
+end for;
+
+HermTranspose := function(B)
+T:=Transpose(B);
+T:=Parent(T)![ComplexConjugate(z):z in Eltseq(T)];
+return T;
+end function;
+
+// For a Shephard-Todd group, make the matrix A needed to give the
+// inner product for which the representation is unitary.
+// Note here we deal with Hermitian transpose of the group, since
+// magma multiplies vectors on the right
+function MakeA(G)
+  R:=MatrixRing(BaseRing(G),Rank(G));
+  sm:=0*R!Random(G);
+  for g in G do
+    sm:=sm+R!(g*HermTranspose(g));
+  end for;
+  return 1/Order(G)*sm;
+end function;
+
+A:=MakeA(G);
+
+function inp(a,b)
+innerp:=&+[a[i]*ComplexConjugate(b[i]):i in [1..Ncols(a)]];
+return(innerp);
+end function;
+
+function inpA(a,b)
+  return inp(a*A,b);
+end function;
+
+function partdoubsum(X,Y,p,q)
+  sm:=0;
+  for j in [1..#X] do for k in [1..#Y] do
+    sm:=sm+inpA(X[j],Y[k])^p*inpA(Y[k],X[j])^q/(inpA(X[j],X[j])*inpA(Y[k],Y[k]))^(Integers()!((p+q)/2));
+  end for; end for;
+  return sm;
+end function;
+
+function bpq(p,q,d)
+  if p ne q
+    then return 0;
+    else return 1/Binomial(p+d-1,d-1);
+  end if;
+end function;
+
+function bt(t,d)
+  pd:=1;
+  for j in [1..t] do
+    pd:=pd*(2*j-1)/(d+2*(j-1));
+  end for;
+  return pd;
+end function;
+
+
+// 40 lines and 45 lines
+X1:=X[3]; 
+X2:=X[4];
+n1:=#X1; n1; n2:=#X2; n2;
+
+p:=3; q:=3;
+
+// The w[1]^2, w[2]^2 and w[1]w[2] coefficients
+c1:=partdoubsum(X1,X1,p,q);
+c2:=partdoubsum(X2,X2,p,q);
+c3:=partdoubsum(X1,X2,p,q);
+
+RHS:=(#X1+#X2)^2*bpq(p,q,d);
+
+PR<w1>:=PolynomialRing(BaseRing(G));
+
+rt:=Roots(c1*w1^2+c2*((n1+n2-n1*w1)/n2)^2+2*c3*w1*((n1+n2-n1*w1)/n2)-RHS);
+rt;
+
+w2=(n1+n2-n1*ww1)/n2;
+
+// Test whether is a real spherical halfdesign
+t:=3;
+n1:=#X1; n1; n2:=#X2; n2;
+c1:=partdoubsum(X1,X1,t,t); c2:=partdoubsum(X2,X2,t,t); c3:=partdoubsum(X1,X2,t,t);
+RHS:=(#X1+#X2)^2*bt(t,d); 
+PR<w1>:=PolynomialRing(BaseRing(G));
+rt:=Roots(c1*w1^2+c2*((n1+n2-n1*w1)/n2)^2+2*c3*w1*((n1+n2-n1*w1)/n2)-RHS);
+rt;
+
+
+// Test whether one is a (t,t)-design
+p:=4; q:=4;
+partdoubsum(X1,X1,p,q);
+(#X1)^2*bpq(p,q,d);
+
+
+For ST(34) check strength of designs:
+
+126, t=3
+672, t=4
+3402, t=3
+9072, t=4 (or more)
+
+
+t=2; n=5; d=2;
+
+mn=100;
+for j = 1:1000
+X=rand(n,d)-1/2 + i*(rand(n,d)-1/2);
+Y=rand(n,d)-1/2 + i*(rand(n,d)-1/2);
+vl=sum(sum((abs(X*Y')).^(2*t)))-sum(diag(X*X').^t)*sum(diag(Y*Y').^t)/nchoosek(d+t-1,t);
+mn=min(vl,mn);
+end
+mn
+
+
+
+
+
+
+
+

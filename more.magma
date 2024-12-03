@@ -1,0 +1,71 @@
+
+//d:=5;
+// G:=ShephardTodd(2,1,d);  // B_n
+// G:=ShephardTodd(2,2,d);  // D_n
+G:=ShephardTodd(p,q,d);
+d:=Rank(G);
+
+// Molien series stuff
+// The factor (1-t^2) is to get the Harmonic Molien series
+// The factor (1-t) is because the matrices have size one more than the rank
+ms<t>:=MolienSeries(G); ms:=(1-t^2)*ms;
+PS<u> := PowerSeriesRing(IntegerRing(),10);
+PS!ms;
+
+F:=BaseRing(G);
+
+// (d+1)/2 works only for d odd
+X:=[];
+for j in [1..d] do
+vc:=[F!1:k in [1..j]];
+for k in [1..d-j] do Append(~vc,F!0); end for;
+v:=Vector(F,vc); orbv:=v^G; lns:=[];
+for x in orbv do if not -x in lns then Append(~lns,x); end if; end for;
+Append(~X,lns);
+end for;
+
+HermTranspose := function(B)
+T:=Transpose(B);
+T:=Parent(T)![ComplexConjugate(z):z in Eltseq(T)];
+return T;
+end function;
+
+function inpA(a,b)
+innerp:=&+[a[i]*ComplexConjugate(b[i]):i in [1..Ncols(a)]];
+return(innerp);
+end function;
+
+function partdoubsum(X,Y,p,q)
+  sm:=0;
+  for j in [1..#X] do for k in [1..#Y] do
+    sm:=sm+inpA(X[j],Y[k])^p*inpA(Y[k],X[j])^q/(inpA(X[j],X[j])*inpA(Y[k],Y[k]))^(Integers()!((p+q)/2));
+  end for; end for;
+  return sm;
+end function;
+
+function bpq(p,q,d)
+  if p ne q
+    then return 0;
+    else return 1/Binomial(p+d-1,d-1);
+  end if;
+end function;
+
+function bt(t,d)
+  pd:=1;
+  for j in [1..t] do
+    pd:=pd*(2*j-1)/(d+2*(j-1));
+  end for;
+  return pd;
+end function;
+
+// Find the line pairs
+lp:=[];
+for j in [1..#X] do
+ for k in [j+1..#X] do
+   Append(~lp,[#X[j]+#X[k],j,k]);
+ end for;
+end for;
+Sort(~lp);
+
+
+

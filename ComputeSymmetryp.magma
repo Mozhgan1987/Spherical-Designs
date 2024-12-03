@@ -1,0 +1,24 @@
+                                                                    */
+
+ComputeProjectiveSymmetryGroup:=function(L,G);
+/* L is a sequence of vectors of equal nor */
+/* G is the projective symmetry group of L */
+R:=[];
+d:=Nrows(L);
+Attach("FrameSymmetry.m");
+V:= CanonicalGramian(L)
+For a in G do
+     P=ZeroMatrix(ComplexField(),d,d);
+     P[1]:=L(1^a);
+     c:=1;
+     For j in [2..d] do
+          c:=c*V[(j-1)^a,j^a]/W[j^a,(j-1)^a];
+     P[j]:=c*L[j^a];
+     end for;
+     Q:=Transpose(P)*(Submatrix(L,1,1,d,d))^{-1};
+     Append(~R,Q);
+end for;
+
+end function;
+
+

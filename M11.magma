@@ -1,0 +1,44 @@
+
+// Calculate the matrix M for a given t and highly symmetric tight frames
+
+g:=11;
+IsRealGroup:=false;
+filenm:="M11.txt";
+load "findlinepairs.magma";
+
+cardX:=Matrix(#X,1,[#X[j]:j in [1..#X]]);
+
+PrintFile(filenm," ");
+PrintFile(filenm,"Shephard-Todd group " cat IntegerToString(g));
+PrintFile(filenm," ");
+PrintFile(filenm,"Size of frames");
+PrintFile(filenm,cardX);
+
+ts:=[4,5,6];
+Ms:=[];
+bts:=[];
+
+for t in ts do 
+p:=t; q:=t;
+M:=ZeroMatrix(BaseRing(G),#X,#X);
+for j in [1..#X] do
+  for k in [j..#X] do
+    mjk:=partdoubsum(X[j],X[k],p,q)/#X[j]/#X[k];
+    M[j,k]:=mjk;
+    if j ne k then M[k,j]:=mjk; end if;
+  end for;
+end for;
+Append(~Ms,M);
+if IsRealGroup then btval:=bt(t,d); else btval:=bpq(t,t,d); end if;
+Append(~bts,btval);
+PrintFile(filenm," ");
+PrintFile(filenm,"M_" cat IntegerToString(t));
+PrintFile(filenm,M);
+PrintFile(filenm," ");
+PrintFile(filenm,"b_" cat IntegerToString(t) cat " = ");
+PrintFile(filenm,btval);
+end for;
+
+// Save all the variables
+save M11;
+

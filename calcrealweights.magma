@@ -1,0 +1,37 @@
+
+p:=t; q:=t;
+print "ST =",g;
+print "d =",d;
+print "Order =",Order(G);
+print "t =",t;
+PR<w1>:=PolynomialRing(BaseRing(G));
+
+for num in [1..#lp] do
+print " ";
+print "pair number =", num;
+  X1:=X[lp[num][2]]; X2:=X[lp[num][3]];
+  if #X1 gt #X2 then X3:=X1; X1:=X2; X2:=X3; end if;
+// The w[1]^2, w[2]^2 and w[1]w[2] coefficients
+c1:=partdoubsum(X1,X1,p,q);
+c2:=partdoubsum(X2,X2,p,q);
+c3:=partdoubsum(X1,X2,p,q);
+n1:=#X1; n2:=#X2;
+RHS:=(n1+n2)^2*bt(t,d);
+rt:=Roots(c1*w1^2+c2*((n1+n2-n1*w1)/n2)^2+2*c3*w1*((n1+n2-n1*w1)/n2)-RHS);
+if #rt eq 1 then 
+   print "There is one root"; 
+   ww1:=rt[1,1];
+   w2:=(n1+n2-n1*ww1)/n2;
+   alpha1:=n1*ww1/(n1+n2); alpha2:=n2*w2/(n1+n2);
+   print "n =",n1+n2;
+   print "n1 =",n1," ","n2 =",n2;
+   print "beta =", [alpha1,alpha2];
+   print "w =", [ww1,w2];
+   print "Here is the polynomial solved:",c1*w1^2+c2*((n1+n2-n1*w1)/n2)^2+2*c3*w1*((n1+n2-n1*w1)/n2)-RHS;
+
+  else print "There are zero roots:", rt;
+       print "n =",n1+n2;
+   print "n1 =",n1," ","n2 =",n2;
+   print c1*w1^2+c2*((n1+n2-n1*w1)/n2)^2+2*c3*w1*((n1+n2-n1*w1)/n2)-RHS;
+end if;
+end for;

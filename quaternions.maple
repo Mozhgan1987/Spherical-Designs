@@ -1,0 +1,663 @@
+
+with(LinearAlgebra):
+with(combinat):
+
+# Quaternions represented as 4x1 matrices, 
+# and nxm matrices over H represented as (4n)xm matrices
+mult := proc(a,b)
+  local a1,b1,c1,d1,a2,b2,c2,d2;
+  a1:=a[1,1]; b1:=a[2,1]; c1:=a[3,1]; d1:=a[4,1];
+  a2:=b[1,1]; b2:=b[2,1]; c2:=b[3,1]; d2:=b[4,1];
+  return Matrix(4,1,[
+a1*a2-b1*b2-c1*c2-d1*d2,
+a1*b2+b1*a2+c1*d2-d1*c2,
+a1*c2-b1*d2+c1*a2+d1*b2,
+a1*d2+b1*c2-c1*b2+d1*a2]);
+end proc;
+
+# Multiply matrices over the quaternians
+matmult := proc(A,B)
+  local ma,na,mb,nb,M,j,k,r,sm;
+  ma:=RowDimension(A)/4; na:=ColumnDimension(A); 
+  mb:=RowDimension(B)/4; nb:=ColumnDimension(B); 
+  M:=Matrix(4*ma,nb);
+# calculate the (j,k)-block of the product
+  for j from 1 to ma do for k from 1 to nb do
+    sm:=Matrix(4,1);
+    for r from 1 to na do
+      sm:=sm+mult(SubMatrix(A,4*j-3..4*j,r),SubMatrix(B,4*r-3..4*r,k));   
+    end do; 
+    M(4*j-3..4*j,k):=sm;
+  end do; end do;
+  return M;
+end proc;
+
+# The transpose
+trans := proc(A)
+  local m,n,M,k,j; 
+  m:=RowDimension(A)/4; n:=ColumnDimension(A); 
+  M:=Matrix(4*n,m);
+  for j from 1 to n do for k from 1 to m do
+    M(4*j-3..4*j,k):=SubMatrix(A,4*k-3..4*k,j);
+  end do; end do;
+  return M;
+end proc;
+
+# conjugate, was previously overwriting conj 
+Hconj := proc(q)
+  local v;
+  v:=-q; 
+  for j from 1 to RowDimension(q)/4 do
+    for k from 1 to ColumnDimension(q) do
+    v[1+4*(j-1),k]:=q[1+4*(j-1),k];
+    end do;
+  end do;
+  return v;
+end proc;
+
+# the inverse of a quaternian
+scalarinv := proc(q)
+  return 1/nm(q)^2*Hconj(q);
+end proc;
+
+# The Hermitian conjugate of a matrix
+hermitian := proc(A)
+  return Hconj(trans(A));
+end proc;
+
+# The inner product between two vectors
+inpro := proc(a,b)
+  local cb;
+  cb:=Hconj(b);
+  sm:=Matrix(4,1);
+#  ipvect:=Matrix(2,1);
+  for j from 1 to RowDimension(a)/4 do
+    sm:=sm+mult(SubMatrix(cb,1+4*(j-1)..4*j,1),SubMatrix(a,1+4*(j-1)..4*j,1));
+#    ipvect[j,1]:=mult(SubMatrix(cb,1+4*(j-1)..4*j,1),SubMatrix(a,1+4*(j-1)..4*j,1));
+  end do;
+  return sm;
+end proc;
+
+# The norm of the entries of the matrix A
+nm := proc(a)
+  local ip;
+  ip:=inpro(a,a);
+  return simplify(sqrt(ip[1,1]));
+end proc;
+
+# The entrywise modulus of the entries of the matrix A
+entrynm := proc(A)
+  local m,n,M,k,j,a,ip; 
+  m:=RowDimension(A)/4; n:=ColumnDimension(A); 
+  M:=Matrix(m,n);
+  for j from 1 to m do for k from 1 to n do
+    a:=SubMatrix(A,4*j-3..4*j,k);
+    ip:=inpro(a,a);
+    M[j,k]:=sqrt(ip[1,1]);
+  end do; end do;
+  return M;
+end proc;
+
+i:='i'; j:='j'; k:='k';
+# Convert a quaternian vector to the ijk form
+cvtent := proc(a)
+  return a[1,1]+a[2,1]*i+a[3,1]*j+a[4,1]*k;
+end proc;
+
+# Convert a quaternian matrix to the ijk form
+cvtmat := proc(A)
+  local m,n,M,k,j,a;
+  m:=RowDimension(A)/4; n:=ColumnDimension(A);
+  M:=Matrix(m,n);
+  for j from 1 to m do for k from 1 to n do
+    a:=SubMatrix(A,4*j-3..4*j,k);
+    M[j,k]:=cvtent(a);
+  end do; end do;
+  return M;
+end proc;
+
+# Convert back
+uncvtmat := proc(A)
+  local m,n,M,kk,jj,rp,a,b;
+  m:=RowDimension(A); n:=ColumnDimension(A);
+  M:=Matrix(4*m,n);
+  for jj from 1 to m do for kk from 1 to n do
+    a:=A[jj,kk]:
+    rp:=subs({i=0,j=0,k=0},a);
+    a:=a-rp;
+    b:=Matrix(4,1,[rp, subs({i=1,j=0,k=0},a), subs({i=0,j=1,k=0},a), subs({i=0,j=0,k=1},a) ]);
+    M(4*jj-3..4*jj,kk):=b;
+  end do; end do;
+  return M;
+end proc;
+
+# right multipy a vector v by a scalar a
+scalarmult := proc(v,a)
+  local n,w,j,vj;
+  n:=RowDimension(v)/4;
+  w:=Matrix(4*n,1);
+  for j from 1 to n do 
+    vj:=SubMatrix(v,4*j-3..4*j,1);
+    w[4*j-3..4*j,1]:= mult(vj,a);
+  end do; 
+  return w; 
+end proc;
+
+# Gram-Schmidt orthogonalisation of a sequence of vectors
+gramsch := proc(V)
+  local n,W,j;
+  n:=nops(V);
+  W:=[];
+  for j from 1 to n do
+    w:=V[j];
+    for k from 1 to nops(W) do
+      w:=w-scalarmult(W[k],inpro(w,W[k]));
+    end do;
+    if norm(w) <> 0 then
+      w:=simplify(1/nm(w)*w);
+      W:=[op(W),w];
+    end if;
+  end do;
+  return W;
+end proc;
+
+# The m-products of a sequence of vectors
+mproduct := proc(v)
+  m:=nops(v);
+  mp:=Matrix(4,1,[1,0,0,0]);
+  if m=1 
+    then mp:=simplify(inpro(v[1],v[1]));
+    else 
+      for j from 1 to m-1 do
+        mp:=simplify(mult(mp,inpro(v[j+1],v[j])));
+      end do;
+      mp:=simplify(mult(mp,inpro(v[1],v[m])));
+  end if;
+  return mp;
+end proc;
+
+# The inverse of a nxn matrix (represented as a 4n x n)
+inv := proc(A)
+ local n,B,Eq,bvars,Id,eqns,j,k;
+  n:=RowDimension(A)/4;
+  B:=Matrix(4*n,n); Id:=Matrix(4*n,n);
+  bvars:={};
+  for k from 1 to n do
+    Id[4*k-3,k]:=1;
+    for j from 1 to 4*n do 
+      B[j,k]:=b[j,k];
+      bvars:=bvars union {b[j,k]};
+    end do; 
+  end do;
+  Eq:=matmult(A,B)-Id;
+  eqns:={};
+  for j from 1 to 4*n do for k from 1 to n do
+    eqns:=eqns union {Eq[j,k]};
+  end do; end do;
+  return subs(solve(eqns,bvars),B);
+end proc;
+
+# Convert V in H ^ (n x d)
+
+
+
+S:=Matrix(2,2,[0,1,1,0]); A:=Matrix(2,2,[1,0,0,-1]);
+v:=1/sqrt(6)*Matrix(2,1,[sqrt(3+sqrt(3)),sqrt(3-sqrt(3))*exp(2*Pi*I/8)]);
+
+
+CtoH := proc(v)
+  M:=Transpose(Matrix(2,4,[Re(v),Im(v),0*v,0*v]));
+  return Matrix(8,1,[M[1,1],M[2,1],M[3,1],M[4,1],M[1,2],M[2,2],M[3,2],M[4,2]]);
+end proc;
+
+iToj := proc(v)
+  return Matrix(8,1,[v[1,1],0,v[2,1],0,v[5,1],0,v[6,1],0]);
+end proc;
+
+# Create the SIC
+s[1]:=CtoH(v); s[2]:=CtoH(S.v); s[3]:=CtoH(A.v); s[4]:=CtoH(S.A.v);
+
+
+# The modulus of the entries of a vector
+vmod := proc(v)
+  n:=RowDimension(v)/4;
+  w:=Matrix(n,1);
+  for j from 1 to n do
+    w[j,1]:=nm(SubMatrix(v,4*j-3..4*j,1));
+  end do;  
+  return w;
+end proc;
+
+
+Vmat:=Matrix(8,2,[s[1],s[2]]);
+Wmat:=Matrix(8,2,[nh[1],nh[2]]);
+U:=matmult(Vmat,inv(Wmat));
+
+alpha:=Matrix(8,1,[a0,a1,a2,a3,a0,a1,a2,a3]);
+Vt:=Matrix(8,2,[e[1],e[2]]);
+Wt:=Matrix(8,2,[e[2],e[1]]);
+Um:=matmult(Vt,inv(Wt));
+matmult(Um,hermitian(Um));
+
+o:=Matrix(4,1,[1,0,0,0]);
+i:=Matrix(4,1,[0,1,0,0]);
+J:=Matrix(4,1,[0,0,1,0]);
+K:=Matrix(4,1,[0,0,0,1]);
+
+V:=Matrix([[o,o,o,o,o,o,o,o],[o,-o,i,-i,J,-J,K,-K]]);
+
+chi1:=[o,o,o,o,o,o,o,o];
+chi2:=[o,o,o,o,-o,-o,-o,-o];
+chi3:=[o,o,-o,-o,o,o,-o,-o];
+chi4:=[o,o,-o,-o,-o,-o,o,o];
+
+chi5:=[o,-o,i,-i,J,-J,K,-K];
+chi6:=[o,-o,J,-J,i,-i,-K,K];
+chi7:=[o,-o,-i,i,K,-K,J,-J];
+chi8:=[o,-o,K,-K,-i,i,-J,J];
+
+V:=Matrix([chi1,chi5]);
+Ct:=Matrix([chi1,chi2,chi3,chi4,chi5,chi6,chi7,chi8]);
+
+U:=Matrix(8,2);
+uvars:={};
+for j from 1 to 8 do for k from 1 to 2 do
+  U[j,k]:=u[j,k];
+  uvars:=uvars union {u[j,k]};
+end do; end do;
+Eq:=matmult(U,Wmat)-Vmat;
+eqns:={};
+for j from 1 to 8 do for k from 1 to 2 do
+  eqns:=eqns union {Eq[j,k]};
+end do; end do;
+U1:=subs(solve(eqns,uvars),U);
+z:=Matrix(4,1,[sqrt(3+sqrt(3))/2/sqrt(3),sqrt(3-sqrt(3))/2/sqrt(3),0,0]); 
+w:=Matrix(4,1,[sqrt(3+sqrt(6))/2/sqrt(3),-sqrt(3-sqrt(6))/2/sqrt(3),0,0]);
+J:=Matrix(4,1,[0,0,1,0]); 
+K:=Matrix(4,1,[0,0,0,1]);
+U2:=Matrix(8,2);
+U2(1..4,1):=z; U2(1..4,2):=mult(mult(Hconj(z),-J),z); 
+U2(5..8,1):=w; U2(5..8,2):=mult(mult(Hconj(w),-K),w);    
+
+# All m element sequences of distinct indices
+mseqs := proc(n,m)
+A:={[]};
+for k from 1 to m do
+oldA:=A;
+A:={};
+for j from 1 to n do
+  for a in oldA do 
+    if not j in {op(a)} then A:=A union {[op(a),j]};
+    end if;
+  end do;
+end do;
+end do;
+ return A;
+end proc;
+
+s[1]:=CtoH(v); s[2]:=CtoH(A.v); s[3]:=CtoH(S.v); s[4]:=CtoH(S.A.v);
+ 
+m:=3;
+mm:=mseqs(4,m);
+for j in mm do
+#  mproduct([seq(nh[k],k in j)]);
+  nm(mproduct([seq(nh[k],k in j)])-mproduct([seq(s[k],k in j)]));
+end do;
+
+m:=6;
+mm:=mseqs(6,m);
+vals:={};
+for j in mm do
+  v:=mproduct([seq(e[k],k in j)]);
+  vals:=vals union {v[1,1]};
+end do;
+
+
+m:=mseqs(6,m);
+vals:={};
+for j in mm do
+  v:=mproduct([seq(e[k],k in j)]);
+  vals:=vals union {v[1,1]};
+end do;
+
+mprds:={};
+m:=2;
+mm:=choose([e[1],e[2],e[3],e[4],e[5],e[6]],m):
+for j from 1 to nops(mm) do
+  print(mproduct(mm[j])); 
+  tmp:=cvtmat(mproduct(mm[j]));
+  mprds:=mprds union {tmp[1,1]};
+end do;
+
+
+mm:=choose([nh[1],nh[2],nh[3],nh[4]],4):
+for j from 1 to nops(mm) do
+  print(mproduct(mm[j]));
+end do;
+
+
+  return simplify(mult(mult(inpro(v2,v1),inpro(v3,v2)),inpro(v1,v3)));
+
+# Six equiangular lines in H^2
+
+e[1]:=Matrix(8,1,[1,0,0,0, 0,0,0,0]);
+e[2]:=Matrix(8,1,[sqrt(2/5),0,0,0, sqrt(3/5),0,0,0]);
+e[3]:=Matrix(8,1,[sqrt(2/5),0,0,0, -1/4*sqrt(3/5),3/4,0,0]);
+e[4]:=Matrix(8,1,[sqrt(2/5),0,0,0, -1/4*sqrt(3/5),-1/4,1/sqrt(2),0]);
+e[5]:=Matrix(8,1,[sqrt(2/5),0,0,0, -1/4*sqrt(3/5),-1/4,-sqrt(2)/4,sqrt(6)/4]);
+e[6]:=Matrix(8,1,[sqrt(2/5),0,0,0, -1/4*sqrt(3/5),-1/4,-sqrt(2)/4,-sqrt(6)/4]);
+
+# Check the various (2,2)-design properties
+simplify(add( ((matmult(inpro(x,e[l]),inpro(e[l],x)))[1,1])^2,l=1..6) );
+
+
+# Latest m-product calculation of all m-products with distinct vectors
+m:=4;
+mm:=mseqs(6,m);
+mps:={};
+rparts:={};
+nms:={};
+for jj in mm do
+   tmp:=mproduct([seq(e[kk],kk in jj)]):
+   rparts:=rparts union {tmp[1,1]};
+   nms:=nms union {nm(tmp)};
+   tmp:=simplify(cvtmat(mproduct([seq(e[kk],kk in jj)]))[1,1]):
+   mps := mps union {tmp}:
+#  mproduct([seq(nh[k],k in j)]);
+end do:
+mps;
+rparts;
+nms;
+
+
+
+
+# Find the symmetry group
+
+a:=3; b:=4;
+a:=3; b:=5;
+
+
+mproduct(v); 
+
+# The permutation to calculate ga1 and ga2 and hence U for a permutation p
+p:=[1,3,4,5,6,2];
+p:=[2,3,4,5,1,6];
+p:=[2,1,4,3,5,6];  # generators (12)(34) and (1235)(46)
+p:=[2,3,5,6,1,4];  # generators (12)(34) and (1235)(46)
+
+a:=Matrix(4,1,[a1,a2,a3,a4]);
+
+findalpha := proc(p)
+  local a,v,w,eqn,eqns1,eqns2,ga1,ga2;
+  a:=Matrix(4,1,[a1,a2,a3,a4]);
+  v:=[e[1],e[2],e[3]]; w:=[e[p[1]],e[p[2]],e[p[3]]];
+  eqn:=matmult(a,mproduct(w))-matmult(mproduct(v),a);
+  eqns1:={eqn[1,1],eqn[2,1],eqn[3,1],eqn[4,1]};
+  v:=[e[1],e[4],e[5]]; w:=[e[p[1]],e[p[4]],e[p[5]]];
+  eqn:=matmult(a,mproduct(w))-matmult(mproduct(v),a);
+  eqns2:={eqn[1,1],eqn[2,1],eqn[3,1],eqn[4,1]};
+  eqns:=eqns1 union eqns2;
+  ga1:=solve(eqns union {a1^2+a2^2+a3^2+a4^2=1},{a1,a2,a3,a4});
+  ga1:=subs(ga1,a);
+  v:=[e[2],e[1],e[3]]; w:=[e[p[2]],e[p[1]],e[p[3]]];
+  eqn:=matmult(a,mproduct(w))-matmult(mproduct(v),a);
+  eqns1:={eqn[1,1],eqn[2,1],eqn[3,1],eqn[4,1]};
+  v:=[e[2],e[4],e[5]]; w:=[e[p[2]],e[p[4]],e[p[5]]];
+  eqn:=matmult(a,mproduct(w))-matmult(mproduct(v),a); eqns2:={eqn[1,1],eqn[2,1],eqn[3,1],eqn[4,1]};
+  eqns:=eqns1 union eqns2;
+  ga2:=solve(eqns union {a1^2+a2^2+a3^2+a4^2=1},{a1,a2,a3,a4});
+  ga2:=subs(ga2,a);
+ return [ga1,ga2];
+end proc;
+
+p:=[2,1,4,3,5,6];  # generator (12)(34) 
+alpha:=findalpha(p);
+ga1:=alpha[1]; ga2:=alpha[2];
+Ua:=simplify(matmult(Matrix([e[p[1]],e[p[2]]]), inv(Matrix([matmult(e[1],ga1), matmult(e[2],ga2)]))));
+
+p:=[2,3,5,6,1,4];  # generator (1235)(46)
+alpha:=findalpha(p);
+ga1:=alpha[1]; ga2:=-alpha[2];
+Ub:=simplify(matmult(Matrix([e[p[1]],e[p[2]]]), inv(Matrix([matmult(e[1],ga1), matmult(e[2],ga2)]))));
+
+simplify(e[2]-scalarmult(matmult(Ua,e[1]),ga1));
+simplify(e[1]-scalarmult(matmult(Ua,e[2]),ga2));
+
+findscalar := proc(U,vj,vsigmaj)
+  local x,y,c1,c2;
+   x:=matmult(U,vj); y:=vsigmaj;
+   c1:=simplify(matmult(inv(SubMatrix(x,1..4,1)),SubMatrix(y,1..4,1)));
+   c2:=simplify(matmult(inv(SubMatrix(x,5..8,1)),SubMatrix(y,5..8,1)));
+   return [c1,c2];
+end proc;
+
+findscalar(Ua,e[1],e[2]);
+findscalar(Ua,e[2],e[1]);
+findscalar(Ua,e[3],e[4]);
+findscalar(Ua,e[4],e[3]);
+findscalar(Ua,e[5],e[5]);
+findscalar(Ua,e[6],e[6]);
+
+findscalar(Ub,e[4],e[6]);
+
+   x:=matmult(Ua,e[5]); y:=e[5];
+c1:=simplify(matmult(inv(SubMatrix(x,1..4,1)),SubMatrix(y,1..4,1)));
+c2:=simplify(matmult(inv(SubMatrix(x,5..8,1)),SubMatrix(y,5..8,1)));
+
+cvtmat(Ub);
+
+
+hhhhhh
+
+
+U:=simplify(matmult(Matrix([e[a],matmult(e[b],a2)]),inv(Matrix([e[1],e[2]]))));
+
+
+
+
+a1:=1; a2:=matmult(inpro(e[a],e[b]),scalarinv(inpro(e[1],e[2])));
+U:=simplify(matmult(Matrix([e[a],matmult(e[b],a2)]),inv(Matrix([e[1],e[2]]))));
+matmult(U,hermitian(U));
+
+a1:=uncvtmat(Matrix([q1+q2*i+q3*j+q4*k]));
+U:=simplify(matmult(Matrix([matmult(e[a],a1),matmult(e[b],a2)]),inv(Matrix([e[1],e[2]]))));
+
+
+
+
+# Find the complementary tight frame
+V5:=Matrix(8,6,[e[1],e[2],e[3],e[4],e[5],e[6]]);
+tp:=hermitian(V5);
+r1:=SubMatrix(tp,1..24,1);
+r2:=SubMatrix(tp,1..24,2);
+r3:=Matrix(1..24,1); r3[1,1]:=1:
+r4:=Matrix(1..24,1); r4[5,1]:=1:
+r5:=Matrix(1..24,1); r5[9,1]:=1:
+r6:=Matrix(1..24,1); r6[13,1]:=1:
+W:=gramsch([r1,r2,r3,r4,r5,r6]);
+cV:=sqrt(3/2)*hermitian(Matrix([W[3],W[4],W[5],W[6]]));
+
+
+
+# Five equiangular lines in H^2
+
+e[1]:=Matrix(8,1,[1,0,0,0, 0,0,0,0]);
+e[2]:=Matrix(8,1,[sqrt(3/8),0,0,0, sqrt(5/8),0,0,0]);
+e[3]:=Matrix(8,1,[sqrt(3/8),0,0,0, -1/6*sqrt(5/2),sqrt(5)/3,0,0]);
+e[4]:=Matrix(8,1,[sqrt(3/8),0,0,0, -1/3*sqrt(5/8),-sqrt(5)/6,5/6*sqrt(3/5),0]);
+e[5]:=Matrix(8,1,[sqrt(3/8),0,0,0, -1/3*sqrt(5/8),-sqrt(5)/6,-5/6*sqrt(3/5),0]);
+
+V5:=Matrix(8,5,[e[1],e[2],e[3],e[4],e[5]]);
+
+# Find the orthogonal complement
+tp:=hermitian(V5);
+r1:=SubMatrix(tp,1..20,1);
+r2:=SubMatrix(tp,1..20,2);
+r3:=Matrix(1..20,1); r3[1,1]:=1:
+r4:=Matrix(1..20,1); r4[5,1]:=1:
+r5:=Matrix(1..20,1); r5[9,1]:=1:
+W:=gramsch([r1,r2,r3,r4,r5]);
+cV:=5/sqrt(15)*hermitian(Matrix([W[3],W[4],W[5]]));
+
+matmult(cV,hermitian(cV));
+matmult(hermitian(cV),cV);
+entrynm ( matmult(hermitian(cV),cV) );
+
+U:=Matrix([trans(V5),(Matrix([W[3],W[4],W[5]]))]);
+
+Matrix(20,5,[trans(V5),trans(W)]);
+
+V1:=trans(Matrix([W[1],W[2]]));
+V2:=trans(Matrix([W[3],W[4],W[5]]));
+U:=trans(Matrix([W[1],W[2],W[3],W[4],W[5]]));
+
+Wf:=Matrix(3,5,[1,-1/sqrt(6),-1/sqrt(6),-1/sqrt(6),-1/sqrt(6),
+0,sqrt(5)/sqrt(6),-sqrt(5)/(3*sqrt(6))-sqrt(5)/(3*sqrt(3))*i,
+-sqrt(5)/(3*sqrt(6))+sqrt(5)/(6*sqrt(3))*i-sqrt(5)/6*j,
+-sqrt(5)/(3*sqrt(6))+sqrt(5)/(6*sqrt(3))*i+sqrt(5)/6*j,
+0,0,sqrt(5)/3,-sqrt(5)/6+sqrt(5)/(2*sqrt(3))*k,
+-sqrt(5)/6-sqrt(5)/(2*sqrt(3))*k ]);
+
+
+
+
+matmult(V,hermitian(V));
+matmult(hermitian(V),V);
+cvtmat( matmult(hermitian(V),V) );
+
+for j from 1 to 6 do for k from j+1 to 6 do 
+  v:=simplify(inpro(e[j],e[k])); 
+#  print(j,k,inpro(h[j],h[k]),Transpose(v).v);
+  print(j,k,simplify(Transpose(v).v));
+end do; end do;
+
+for j from 1 to 6 do for k from j+1 to 6 do  for l from k+1 to 6 do
+  v:=triprods(e[j],e[k],e[l]);
+  w:=mproduct([e[j],e[k],e[l]]);
+#  print(j,k,inpro(h[j],h[k]),Transpose(v).v);
+  print(j,k,l,simplify(v[1,1]),simplify(w[1,1]));
+end do; end do; end do;
+
+for j from 1 to 6 do for k from j+1 to 6 do for l from k+1 to 6 do for m from l+1 to 6 do
+  w:=mproduct([e[j],e[k],e[l],e[m]]);
+#  print(j,k,inpro(h[j],h[k]),Transpose(v).v);
+  print(j,k,l,m,simplify(w[1,1]));
+end do; end do; end do; end do;
+
+
+# Hoggar's four lines
+h[1]:=Matrix(8,1,[1,0,0,0, 0,0,1,0]);
+h[2]:=Matrix(8,1,[1,-sqrt(2),0,0, 0,0,1,-sqrt(2)]);
+h[3]:=Matrix(8,1,[sqrt(2)+sqrt(3),1,0,0, 0,0,sqrt(2)-sqrt(3),1]);
+h[4]:=Matrix(8,1,[sqrt(2)-sqrt(3),1,0,0, 0,0,sqrt(2)+sqrt(3),1]);
+
+
+nh[1]:=h[1]/nm(h[1]);
+nh[2]:=h[2]/nm(h[2]);
+nh[3]:=h[3]/nm(h[3]);
+nh[4]:=h[4]/nm(h[4]);
+
+V:=Matrix(8,4,[nh[1],nh[2],nh[3],nh[4]]);
+
+for j from 1 to 4 do for k from j+1 to 4 do 
+  v:=simplify(inpro(h[j],h[k])/nm(h[j])/nm(h[k])); 
+#  print(j,k,inpro(h[j],h[k]),Transpose(v).v);
+  print(Transpose(v).v);
+end do; end do;
+
+
+
+triprods := proc(v1,v2,v3)
+  return simplify(mult(mult(inpro(v2,v1),inpro(v3,v2)),inpro(v1,v3)));
+end proc;
+
+quadprods := proc(v1,v2,v3,v4)
+  return simplify(
+mult(mult(mult(inpro(v2,v1),inpro(v3,v2)),inpro(v4,v3)),inpro(v1,v4) ));
+end proc;
+
+# The nine equiangular lines in H^2
+
+
+s[1]:=Matrix(8,1,[1,0,0,0, 0,0,0,0]);
+s[2]:=1/sqrt(2)*Matrix(8,1,[1,0,0,0, 1,0,0,0]);
+s[3]:=1/sqrt(2)*Matrix(8,1,[1,0,0,0, 0,1,0,0]);
+s[4]:=1/sqrt(2)*Matrix(8,1,[1,0,0,0, 0,0,1,0]);
+s[5]:=1/sqrt(2)*Matrix(8,1,[1,0,0,0, 0,0,0,1]);
+s[6]:=1/sqrt(2)*Matrix(8,1,[1,0,0,0, 1,0,0,0]);
+
+s[1]:=Matrix(8,1,[1,0,0,0, 0,0,0,0]);
+s[2]:=Matrix(8,1,[-1/2,0,0,0, sqrt(3)/2,0,0,0]);
+s[3]:=Matrix(8,1,[-1/2,0,0,0, -sqrt(3)/2,0,0,0]);
+s[2]:=1/sqrt(2)*Matrix(8,1,[1,0,0,0, 1,0,0,0]);
+s[3]:=1/sqrt(2)*Matrix(8,1,[1,0,0,0, -1,0,0,0]);
+s[4]:=1/sqrt(2)*Matrix(8,1,[1,0,0,0, 0,1,0,0]);
+s[5]:=1/sqrt(2)*Matrix(8,1,[1,0,0,0, 0,-1,0,0]);
+s[6]:=1/sqrt(2)*Matrix(8,1,[1,0,0,0, 0,0,1,0]);
+s[7]:=1/sqrt(2)*Matrix(8,1,[1,0,0,0, 0,0,-1,0]);
+s[8]:=1/sqrt(2)*Matrix(8,1,[1,0,0,0, 0,0,0,1]);
+s[9]:=1/sqrt(2)*Matrix(8,1,[1,0,0,0, 0,0,0,-1]);
+
+for j from 1 to 6 do for k from j+1 to 6 do 
+ print( j,k, nm(inpro(s[j],s[k])) );
+end do; end do; 
+
+for j from 1 to 4 do for k from j+1 to 4 do for l from k+1 to 4 do
+ print( simplify(mult(mult(inpro(nh[j],nh[k]),inpro(nh[l],nh[j])),inpro(nh[k],nh[l]))) );
+end do; end do; end do;
+
+v1:=Matrix(4,1,[0.1266,- 0.5166, -0.3213, - 0.5146]);
+v2:=Matrix(4,1,[0.6456, - 0.1387, -0.4197, 0.6014]);
+v3:=Matrix(4,1,[0.0121 , 0.5301, 0.1920, 0.2394]);
+
+v1:=Matrix(4,1,[0.1266,- 0.5166, -0.3213, 0.5146]);
+v2:=Matrix(4,1,[0.6456, - 0.1387, -0.4197, -0.6014]);
+v3:=Matrix(4,1,[0.0121 , 0.5301, 0.1920, -0.2394]);
+
+
+# to see what n are possible for equiangular lines in H^d
+for d from 60 to 90 do
+ns:=[]:
+for n from d to 2*d^2-d do
+  if n <= min(2*d^2-d,2*(n-d)^2-(n-d)) then
+#    print(n);
+    ns:=[op(ns),n]:
+  end if;
+end do;
+print(d,min(ns));
+end do;
+
+# to see what n are possible for equiangular lines in R^d
+m:=1;
+for d from 2 to 40 do
+ns:=[]:
+for n from d+2 to d+1/2*d*(d-1)*m do
+  if n <= min(d+1/2*d*(d-1)*m,n-d+1/2*(n-d)*(n-d-1)*m) then
+#    print(n);
+    ns:=[op(ns),n]:
+  end if;
+end do:
+print(d,[min(ns),d+1/2*d*(d-1)*m]);
+end do:
+
+# Vertices of a simplex
+
+v1:=Matrix(3,1,[1,0,0]);
+v2:=Matrix(3,1,[-1/3,sqrt(8)/3,0]);
+v3:=Matrix(3,1,[-1/3,-sqrt(2)/3,sqrt(2/3)]);
+v4:=Matrix(3,1,[-1/3,-sqrt(2)/3,-sqrt(2/3)]);
+ 
+P1:=v1.Transpose(v1);
+P2:=v2.Transpose(v2);
+P3:=v3.Transpose(v3);
+P4:=v4.Transpose(v4);
+Id:=3/4*(P1+P2+P3+P4);
+Q1:=Id-P1;
+Q2:=Id-P2;
+Q3:=Id-P3;
+Q4:=Id-P4;
+
+print(2*d^2-d);
+
+

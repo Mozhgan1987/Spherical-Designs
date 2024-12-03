@@ -1,0 +1,65 @@
+
+
+g:=34;
+load "findlinepairs.magma";
+t:=4;
+load "calcweights.magma";
+
+g:=37;
+load "findlinepairs.magma";
+t:=4;
+load "calcrealweights.magma";
+
+d:=5; 
+load "ABD.magma";
+t:=2;
+load "calcrealweights.magma";
+
+
+d:=5; 
+load "more.magma";
+t:=2;
+load "calcrealweights.magma";
+
+d:=5; 
+G := ImprimitiveReflectionGroup(2,1,d);
+
+p:=2; q:=2; d:=3;
+load "ImpRefGrps.m";
+t:=2;
+load "calcrealweights.magma";
+
+p:=2; q:=2; d:=7;
+p:=2; q:=1; d:=4;
+load "more.magma";
+t:=2;
+load "calcrealweights.magma";
+
+
+
+
+
+
+X:=[];
+for j in Orbits(G) do
+  for k in [1..#Size(j)] do
+    v:=Size(j)[k];
+    orbv:=v^G; lns:=[];
+    for x in orbv do if not -x in lns then Append(~lns,x); end if; end for;
+    Append(~X,lns);
+  end for;
+end for;
+// Find the line pairs
+lp:=[];
+for j in [1..#X] do
+ for k in [j+1..#X] do
+   Append(~lp,[#X[j]+#X[k],j,k]);
+ end for;
+end for;
+Sort(~lp);
+
+
+t:=2;
+load "calcrealweights.magma";
+
+

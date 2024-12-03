@@ -1,0 +1,213 @@
+// Shayne Waldron
+
+// The LHS for the variational condition for integrating H(p,q)
+// Takes the Gramian as input, and assumes it is Hermitian
+function doubsum(Gr,p,q)
+  n:=Ncols(Gr);
+  sm:=0;
+  for j in [1..n] do for k in [1..n] do
+    sm:=sm+Gr[j,k]^p*Gr[k,j]^q;
+  end for; end for;
+  return sm;
+end function;
+
+function partdoubsum(X,Y,p,q)
+  sm:=0;
+  for j in [1..#X] do for k in [1..#Y] do
+    sm:=sm+inpA(X[j],Y[k])^p*inpA(Y[k],X[j])^q/(inpA(X[j],X[j])*inpA(Y[k],Y[k]))^(Integers()!((p+q)/2));
+  end for; end for;
+  return sm;
+end function;
+
+function singsum(Gr,p,q)
+  n:=Ncols(Gr);
+  sm:=0;
+  for j in [1..n] do 
+    sm:=sm+Gr[j,j]^p*Gr[j,j]^q;
+  end for;
+  return sm;
+end function;
+
+
+// For a Shephard-Todd group, make the matrix A needed to give the
+// inner product for which the representation is unitary.
+// Note here we deal with Hermitian transpose of the group, since
+// magma multiplies vectors on the right
+function MakeA(G)
+  R:=MatrixRing(BaseRing(G),Rank(G));
+  sm:=0*R!Random(G);
+  for g in G do
+    sm:=sm+R!(g*HermitianTranspose(g));
+  end for;
+  return 1/Order(G)*sm;
+end function;
+
+function badMakeA(G)
+  R:=MatrixRing(BaseRing(G),Rank(G));
+  sm:=0*R!Random(G);
+  for g in G do
+    sm:=sm+R!(HermitianTranspose(g)*g);
+  end for;
+  return 1/Order(G)*sm;
+end function;
+
+
+// Here I think InnerProduct does not take a complex conjugate
+function GroupInnerProduct(u,v)
+        IP := 0;
+        for g in G do
+            IP := IP + InnerProduct(u*g,v*g);
+        end for;
+        IP := IP/(Order(G));
+        return IP;
+end function;
+
+function HelenMakeA(H)
+    R := BaseRing(H);
+    d := Degree(H);
+    VV := VectorSpace(H);
+    IPM := Matrix(R,d,d, [<i,j,GroupInnerProduct(BasisElement(VV,i),BasisElement(VV,j))> : i,j in [1..d]]);
+    V := KSpace(R, d, IPM);
+    return IPM;
+end function;
+
+V := KSpace(BaseRing(G),Rank(G),A);
+
+G:=ShephardTodd(33);
+time A:=MakeA(G);
+time HelenA:=HelenMakeA(G);
+
+
+
+function bpq(p,q,d)
+  if p ne q 
+    then return 0;
+    else return 1/Binomial(p+d-1,d-1);
+  end if;
+end function;
+
+p:=3; q:=3; d:=5;
+
+doubsum(Gr,p,q);
+
+bpq(p,q,d)*singsum(Gr,p,q)^2;
+
+------------------------------------------------------------------------------
+
+G:=ShephardTodd(33);
+
+load "Complements.m";
+
+function MaxPS(g)
+PN:=parabolicNames[g];
+n:=#PN;
+pn:=PN;
+for i:=1 to n-1 do
+Pi:=paraData(g,PN[i]);
+for j:=i+1 to n do
+Pj:=paraData(g,PN[j]);
+if Pi meet Pj eq Pi then Exclude(~pn,PN[i]);
+elif Pi meet Pj eq Pj then Exclude(~pn,PN[j]);
+end if;
+end for;
+end for;
+return pn;
+end function;
+
+function linesi(g,i)
+MPS:=MaxPS(g);
+P,Q,H,N,roots,rho,J,Xi,G:=paraData(g,MPS[i]);
+a:=&meet[Eigenspace(gen,1):gen in P].1;
+T:=RightTransversal(G,P);
+v:=[a^g:g in T];
+V:=Parent(v[1]); subs:={@ @}; vecs:=[ ];
+for j:=1 to #v do
+S:=sub<V|v[j]>;
+if S notin subs then
+Include(~subs,S);Append(~vecs,v[j]);
+end if;
+end for;
+return vecs;
+end function;
+
+
+function inp(a,b)
+innerp:=&+[a[i]*ComplexConjugate(b[i]):i in [1..Ncols(a)]];
+return(innerp);
+end function;
+
+function inpA(a,b)
+  return inp(a*A,b);
+end function;
+
+
+A:=MakeA(G);
+X:=l40;
+n:=#X;
+Gr:=ZeroMatrix(BaseRing(G),n,n);
+for j in [1..n] do
+ for k in [1..n] do
+  Gr[j,k]:=inp(X[j]*A,X[k])*inp(X[k]*A,X[j])/inp(X[j]*A,X[j])/inp(X[k]*A,X[k]);
+ end for;
+end for;
+
+
+> partdoubsum(X1,X1,3,3);
+1600/27
+> partdoubsum(X2,X2,3,3);
+135/2
+> partdoubsum(X2,X1,3,3);
+40
+> bpq(3,3,d);
+1/35
+
+X1:=l40;
+X2:=l45;
+
+
+
+
+
+
+g:=33;
+
+MaxPS(g);
+
+MPS:=MaxPS(g);Orders:=[];G:=ShephardTodd(g);
+
+// 40 vector frame
+j:=3;
+P,Q,H,N,roots,rho,J,Xi,G:=paraData(g,MPS[j]);
+v:=&meet[Eigenspace(gen,1):gen in P].1;
+#(v^G)/Order(Centre(G));
+
+l40:=linesi(g,j);
+ 
+// 45 vector frame
+j:=4;
+P,Q,H,N,roots,rho,J,Xi,G:=paraData(g,MPS[j]);
+v:=&meet[Eigenspace(gen,1):gen in P].1;
+#(v^G)/Order(Centre(G));
+
+l45:=linesi(g,j);
+
+// 216 vector frame
+j:=2;
+P,Q,H,N,roots,rho,J,Xi,G:=paraData(g,MPS[j]);
+v:=&meet[Eigenspace(gen,1):gen in P].1;
+#(v^G)/Order(Centre(G));
+
+l216:=linesi(g,j);
+
+a
+
+------------------------------------------------------
+
+rf:={};
+for g in G do
+  if IsReflection(g) then Include(~rf,g); end if;
+end for;
+
+
+
+

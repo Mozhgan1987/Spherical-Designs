@@ -1,0 +1,290 @@
+
+with(LinearAlgebra):
+with(combinat):
+
+d:=5;
+
+Real:=z->subs(I=0,z):
+Imag:=z->(z-subs(I=0,z))/I:
+conj:=z->subs(I=-I,z):
+gD:=p->add(diff(p,x[j]$2)+diff(p,y[j]$2),j=0..d-1);
+
+for j from 0 to d-1 do z[j]:=x[j]+I*y[j]; cz[j]:=x[j]-I*y[j]; end:
+v:=Matrix(d,1,[seq(z[j],j=0..d-1)]);
+
+w:=exp(2*Pi*I/d); A:=Matrix(d): S:=Matrix(d):
+for j from 1 to d do
+   A[j,j]:=w^(j-1); S[(j mod d)+1,j]:=1;
+end do:
+inds:=[op(permute([1,1,seq(0,j=1..d-2)])),op(permute([2,seq(0,j=1..d-1)]))];
+A; S;
+
+# The general polynomial inn Hom(2,2), without dependencies induced by restriction to the sphere
+p:=0; cs:={}: csz:={};
+for j from 1 to nops(inds) do for k from 1 to nops(inds) do 
+  p:=p+c[j,k]* product(z[a]^(inds[j][a+1]),a=0..d-1)*product(cz[a]^(inds[k][a+1]),a=0..d-1);
+  z[j]:=x[j]+I*y[j]; cz[j]:=x[j]-I*y[j]; 
+  cs:=cs union {c[j,k]};
+  csz:=csz union {c[j,k]=0};
+end;
+end;
+
+# The Laplacian of p
+lp:=gD(p):
+
+# equations to make the Laplacian zero
+eqns:={}:
+for j from 0 to d-1 do for k from 0 to d-1 do 
+eqns:=eqns union {diff(lp,x[j],x[k]),diff(lp,x[j],y[k]),diff(lp,y[j],y[k])};
+end; end;
+
+# Hope to make p harmonic
+harmp:=subs(solve(eqns,cs),p):
+simplify(gD(harmp));
+
+# Reynolds operator substitutions
+for j from 0 to d-1 do for k from 0 to d-1 do 
+  gv:=(S^j).(A^k).v; 
+  s[j,k]:= {seq(Real(z[a])=Real(gv[a+1,1]),a=0..d-1)} union {seq(Imag(z[a])=Imag(gv[a+1,1]),a=0..d-1)};
+end; end;
+
+q:=harmp:
+Rq:=0:
+for j from 0 to d-1 do for k from 0 to d-1 do 
+  Rq:=Rq+subs(s[j,k],q):
+end; end;
+Rq:=Rq/d^2:
+
+sss:= {seq(x[j]=(zz[j]+czz[j])/2,j=0..d-1)} union {seq(y[j]=(zz[j]-czz[j])/(2*I),j=0..d-1)}:
+aa:=subs(sss,Rq):
+
+invpolys:=[];
+invpolyset:={};
+for j from 1 to nops(inds) do for k from 1 to nops(inds) do
+#  print( subs((csz minus {c[j,k]=0}) union {c[j,k]=1},aa) );
+  invpolys:=[op(invpolys),subs((csz minus {c[j,k]=0}) union {c[j,k]=1},aa)];
+  invpolyset:=invpolyset union {subs((csz minus {c[j,k]=0}) union {c[j,k]=1},aa)};
+end; end;
+
+coords:=proc(f)
+  local u,fn,a,j,k;
+  u:=[];
+  for j from 1 to nops(inds) do for k from 1 to nops(inds) do 
+     fn:=f;
+     for a from 0 to d-1 do 
+       if inds[j][a+1] > 0 then fn:=diff(fn,zz[a]$(inds[j][a+1])); end if;
+       if inds[k][a+1] > 0 then fn:=diff(fn,czz[a]$(inds[k][a+1])); end if;
+     end; 
+    u:=[op(u),fn];
+  end; end;
+  return u;
+end proc;
+
+M:=Matrix([seq(coords(invpolys[j]),j=1..nops(invpolys))]):
+Rank(M);
+
+------------------------------------------------------------------------------------------
+
+d:=12;
+z:='z';
+cz:='cz';
+f:='f';
+heqns0:={};
+heqns1:={};
+heqns2:={};
+for s from 0 to d-1 do for t from 0 to d-1 do
+   f[s,t]:=add(z[r]*cz[r+s mod d]*cz[r+t mod d]*z[r+s+t mod d],r=0..d-1):
+   if s<>0 and t<>0 then
+   heqns0:=heqns0 union {add(z[r]*cz[r+s mod d]*cz[r+t mod d]*z[r+s+t mod d],r=0..d-1)}:
+   end if;
+   if (s<>0 and t=0) or (s=0 and t<>0) then
+   heqns1:=heqns1 union {add(z[r]*cz[r+s mod d]*cz[r+t mod d]*z[r+s+t mod d],r=0..d-1)}:
+   end if;
+   if s=0 and t=0 then
+   heqns2:=heqns2 union {add(z[r]*cz[r+s mod d]*cz[r+t mod d]*z[r+s+t mod d],r=0..d-1)}:
+   end if;
+end; end;
+
+nops(heqns0);
+nops(heqns1);
+nops(heqns2);
+
+selfconj:={};
+for f in heqns0 do
+  if subs({z=cz,cz=z},f) = f then selfconj:=selfconj union {f}; end if;
+end;
+(nops(heqns0)-nops(selfconj))/2, nops(selfconj);
+
+eqs:={};
+eqsinds:={};
+for s from 1 to d-1 do 
+  t:=0;
+  eqs:=eqs union { {f[s,t],f[t,s], f[-s mod d ,t],f[-t mod d,s], f[s,-t mod d],f[t,-s mod d], f[-s mod d ,-t mod d],f[-t mod d,-s mod d]} };
+  eqsinds:=eqsinds union { {[s,t],[t,s],[-s mod d ,t],[-t mod d,s],[s,-t mod d],[t,-s mod d],[-s mod d ,-t mod d],[-t mod d,-s mod d]} };
+end; 
+nops(heqns1),nops(eqs),nops(eqsinds);
+
+
+sss:= {seq(x[j]=(zz[j]+czz[j])/2,j=0..d-1)} union {seq(y[j]=(zz[j]-czz[j])/(2*I),j=0..d-1)}:
+bb:=subs(sss,harmp):
+
+eqs:={};
+eqsinds:={};
+for s from 1 to d-1 do for t from 1 to d-1 do
+  eqs:=eqs union { {f[s,t],f[t,s], f[-s mod d ,t],f[-t mod d,s], f[s,-t mod d],f[t,-s mod d], f[-s mod d ,-t mod d],f[-t mod d,-s mod d]} };
+  eqsinds:=eqsinds union { {[s,t],[t,s],[-s mod d ,t],[-t mod d,s],[s,-t mod d],[t,-s mod d],[-s mod d ,-t mod d],[-t mod d,-s mod d]} };
+end; end;
+nops(heqns0),nops(eqs),nops(eqsinds);
+
+
+sss:= {seq(x[j]=(zz[j]+czz[j])/2,j=0..d-1)} union {seq(y[j]=(zz[j]-czz[j])/(2*I),j=0..d-1)}:
+bb:=subs(sss,harmp):
+harmps:=[];
+harmpset:={};
+for j from 1 to nops(inds) do for k from 1 to nops(inds) do
+#  print( subs((csz minus {c[j,k]=0}) union {c[j,k]=1},aa) );
+  harmps:=[op(harmps),subs((csz minus {c[j,k]=0}) union {c[j,k]=1},bb)];
+  harmpset:=harmpset union {subs((csz minus {c[j,k]=0}) union {c[j,k]=1},bb)};
+end; end;
+M2:=Matrix([seq(coords(harmps[j]),j=1..nops(harmps))]):
+Rank(M2);
+
+
+lpharmp:=gD(harmp):
+# This is not zero, because of dependencies amongst the monomials restricted to the sphere
+depeqns:={};
+for j from 0 to d-1 do for k from 0 to d-1 do 
+depeqns:=depeqns union {diff(lpharmp,x[j],x[k]),diff(lpharmp,x[j],y[k]),diff(lpharmp,y[j],y[k])};
+end; end;
+
+
+
+q:=z[0]^2*cz[1]^2;
+q:=p;
+invp:=subs(solve(eqns,cs),p);
+
+lp:=gD(p);
+
+lp:=0;
+for j from 0 to d-1 do
+  lp:=lp+diff(invp,x[j]$2)+diff(invp,y[j]$2);
+end;
+
+q:=invp;
+Rq:=0;
+for j from 0 to d-1 do for k from 0 to d-1 do 
+  Rq:=Rq+subs(s[j,k],q);
+end; end;
+Rq:=Rq/d^2;
+
+sss:= {seq(x[j]=(zz[j]+czz[j])/2,j=0..d-1)} union {seq(y[j]=(zz[j]-czz[j])/(2*I),j=0..d-1)};
+aa:=subs(sss,Rq);
+
+for j from 1 to nops(inds) do for k from 1 to nops(inds) do 
+  print( subs((csz minus {c[j,k]=0}) union {c[j,k]=1},aa) );
+end; end;
+
+
+
+z[0]:=x[0]+I*y[0];
+z[1]:=x[1]+I*y[1];
+z[2]:=x[2]+I*y[2];
+cz[0]:=x[0]-I*y[0];
+cz[1]:=x[1]-I*y[1];
+cz[2]:=x[2]-I*y[2];
+
+f:=z[0]^2*cz[1]^2+cz[0]^2*z[1]^2;
+
+f:=cz[2]*cz[1]*z[0]^2+ cz[0]*cz[2]*z[1]^2+ cz[1]*cz[0]*z[2]^2;
+diff(f,x[0]$2)+diff(f,x[1]$2)+diff(f,x[2]$2)+diff(f,y[0]$2)+diff(f,y[1]$2)+diff(f,y[2]$2);
+
+z[0]^2
+z[0]*z[1]
+z[1]^2
+
+cz[0]^2
+cz[0]*cz[1]
+cz[1]^2
+
+
+p:=
+
+p:=c[1,1]*z[0]^2*cz[0]^2
++ c[1,2]*z[0]^2*cz[0]*cz[1]
++ c[1,3]*z[0]^2*cz[1]^2
++ c[2,1]*z[0]*z[1]*cz[0]^2
++ c[2,2]*z[0]*z[1]*cz[0]*cz[1]
++ c[2,3]*z[0]*z[1]*cz[1]^2
++ c[3,1]*z[1]^2*cz[0]^2
++ c[3,2]*z[1]^2*cz[0]*cz[1]
++ c[3,3]*z[1]^2*cz[1]^2;
+
+dd:=diff(p,x[0]$2)+diff(p,x[1]$2)+diff(p,y[0]$2)+diff(p,y[1]$2);
+diff(q,x[0]$2)+diff(q,x[1]$2)+diff(q,y[0]$2)+diff(q,y[1]$2);
+
+s1:={z[0]=z[0],z[1]=z[1],cz[0]=cz[0],cz[1]=cz[1]};
+s2:={z[0]=z[1],z[1]=z[0],cz[0]=cz[1],cz[1]=cz[0]};
+s3:={z[0]=z[0],z[1]=-z[1],cz[0]=cz[0],cz[1]=-cz[1]};
+s4:={z[0]=z[1],z[1]=-z[0],cz[0]=cz[1],cz[1]=-cz[0]};
+
+s5:={z[0]=-z[0],z[1]=-z[1],cz[0]=-cz[0],cz[1]=-cz[1]};
+s6:={z[0]=-z[1],z[1]=-z[0],cz[0]=-cz[1],cz[1]=-cz[0]};
+s7:={z[0]=-z[0],z[1]=z[1],cz[0]=-cz[0],cz[1]=cz[1]};
+s8:={z[0]=-z[1],z[1]=z[0],cz[0]=-cz[1],cz[1]=cz[0]};
+
+ss:={x[0]=zz[0]+czz[0],x[1]=zz[1]+czz[1],y[0]=(zz[0]-czz[0])/I,y[1]=(zz[1]-czz[1])/I};
+
+q:=z[0]^2*cz[1]^2;
+
+q:=z[0]^2*cz[0]^2-4*z[0]*cz[0]*z[1]*cz[1];
+q:=z[0]^2*cz[0]*cz[1]-z[0]*z[1]*cz[0]^2;
+
+q:=subs({c[1,2]=0,c[2,1]=0,c[2,3]=1,c[3,2]=0},c[1,2]*z[0]^2*cz[0]*cz[1] + c[2,1]*z[0]*z[1]*cz[0]^2
++ c[2,3]*z[0]*z[1]*cz[1]^2 + c[3,2]*z[1]^2*cz[0]*cz[1]);
+
+q:=z[0]^2*cz[0]^2-4*z[0]*z[1]*cz[0]*cz[1]+z[1]^2*cz[1]^2;
+
+
+qG:=subs(s1,q)+subs(s2,q)+subs(s3,q)+subs(s4,q)+subs(s5,q)+subs(s6,q)+subs(s7,q)+subs(s8,q);
+subs(ss,qG);
+
+
+
+diff(diff(dd,x[0]),x[1]);
+
+
+
+
+
+                                2                2                  2                2
+            f := (x[0] + y[0] I)  (x[1] - y[1] I)  + (x[0] - y[0] I)  (x[1] + y[1] I)
+
+> diff(f,x[0]);
+                                               2                                    2
+              2 (x[0] + y[0] I) (x[1] - y[1] I)  + 2 (x[0] - y[0] I) (x[1] + y[1] I)
+
+> diff(f,x[0]$2);
+                                               2                    2
+                              2 (x[1] - y[1] I)  + 2 (x[1] + y[1] I)
+
+> diff(f,x[0]$2)+diff(f,x[1]$2);
+                          2                    2                    2                    2
+         2 (x[1] - y[1] I)  + 2 (x[1] + y[1] I)  + 2 (x[0] + y[0] I)  + 2 (x[0] - y[0] I)
+
+> diff(f,x[0]$2)+diff(f,x[1]$2)+diff(f,y[0]$2)+diff(f,y[1]$2);
+                                                 0
+
+> simplify(f);
+             2     2         2     2                                 2     2         2     2
+       2 x[0]  x[1]  - 2 x[0]  y[1]  + 8 x[0] y[0] x[1] y[1] - 2 y[0]  x[1]  + 2 y[0]  y[1]
+
+> f;              
+                              2                2                  2                2
+               (x[0] + y[0] I)  (x[1] - y[1] I)  + (x[0] - y[0] I)  (x[1] + y[1] I)
+
+> expand(f);
+             2     2         2     2                                 2     2         2     2
+       2 x[0]  x[1]  - 2 x[0]  y[1]  + 8 x[0] y[0] x[1] y[1] - 2 y[0]  x[1]  + 2 y[0]  y[1]
+
+> 
+
